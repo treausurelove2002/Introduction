@@ -1,0 +1,736 @@
+#installing packages
+install.packages("foreign")
+install.packages("ggcorrplot")
+install.packages("knitr")
+install.packages("rmarkdown")
+library(foreign)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(ggcorrplot)
+
+setwd("C:/Users/User/OneDrive/Documents/University/Year in Data Analytics/MAST5957 - Year in Data Analytics Project/MAST5957 - Final Project")
+getwd()
+
+#importing BCS and CSEW data
+bcs_data<-read.spss("bcs_apr09mar10_nvf.sav", to.data.frame = TRUE)
+csew_data<-read.spss("csew_apr19mar20_nvf.sav", to.data.frame = TRUE)
+
+#viewing BCS data
+head(bcs_data)
+tail(bcs_data)
+View(bcs_data) # 44638 observations of 1809 variables
+
+#viewing CSEW data
+head(csew_data)
+tail(csew_data)
+View(csew_data) # 33734 observations of 2290 variables
+
+###Data Preparation and Data Cleaning###
+
+#starting data cleaning and prep of BCS data 
+#creating new BCS dataframe with selected variables
+NEWbcs_data<- bcs_data %>% 
+  select(nadults, # number of adults in the household
+         sex, # gender of respondent
+         age, # age pf respondent
+         nchil, # number of children under age of 16 in household
+         yrsarea, # number of years living in the area
+         yrsaddr, # number of years living at address
+         persthef,# if respondent experienced personal theft
+         trypers, # if respondent experienced attempted personal theft
+         delibdam, # if respondent experienced deliberate damage to property
+         delibvio, # if the respondent experienced deliberate violence to themselves
+         threviol, # if the respondent experience a threat of violence to themselves
+         sexattak) #if the respondent has been sexually assaulted
+
+# 1797 variables ommited
+
+#staring data cleaning and prep of CSEW data
+#creating new CSEW dataframe with selected variables
+NEWcsew_data <-csew_data %>% 
+  select(nadults, # number of adults in the household
+         sex, # gender of respondent
+         age,  # age pf respondent
+         nchil, # number of children under age of 16 in household
+         yrsarea, # number of years living in the area
+         yrsaddr,  # number of years living at address
+         persthef, # if respondent experienced personal theft
+         trypers, # if respondent experienced attempted personal theft
+         delibdam,# if respondent experienced deliberate damage to property
+         delibvio, # if the respondent experienced deliberate violence to themselves
+         threviol2, # if the respondent experience a threat of violence to themselves
+         sexattak) #if the respondent has been sexually assaulted
+# 2278 variables omitted
+
+#renaming columns in NEWbcs_data dataframe
+colnames(NEWbcs_data)<-c("num_adults",
+                         "gender",
+                         "age",
+                         "num_children",
+                         "num_years_area",
+                         "num_years_address",
+                         "personal_theft",
+                         "attempted_theft",
+                         "delib_damage",
+                         "delib_violence",
+                         "threat_violence",
+                         "sexual_attack")
+
+#renaming columns in the NEWcsew_data dataframe
+colnames(NEWcsew_data)<-c("num_adults", 
+                          "gender",
+                          "age",
+                          "num_children",
+                          "num_years_area",
+                          "num_years_address",
+                          "personal_theft",
+                          "attempted_theft",
+                          "delib_damage",
+                          "delib_violence",
+                          "threat_violence",
+                          "sexual_attack")
+
+# checking for missing values in NEWbcs_data
+summary(is.na(NEWbcs_data))
+# checking for missing values in NEWcsew_data
+summary(is.na(NEWcsew_data))
+
+#removing NA values in NEWbcs_data
+NEWbcs_data <- na.omit(NEWbcs_data[, c("num_adults",
+                                       "gender", 
+                                       "age",
+                                       "num_children",
+                                       "num_years_area",
+                                       "num_years_address",
+                                       "personal_theft",
+                                       "attempted_theft",
+                                       "delib_damage",
+                                       "delib_violence",
+                                       "threat_violence",
+                                       "sexual_attack")])
+#removing NA values in NEWcsew_data
+NEWcsew_data <- na.omit(NEWcsew_data[, c("num_adults",
+                                         "gender", 
+                                         "age",
+                                         "num_children",
+                                         "num_years_area",
+                                         "num_years_address",
+                                         "personal_theft",
+                                         "attempted_theft",
+                                         "delib_damage",
+                                         "delib_violence",
+                                         "threat_violence",
+                                         "sexual_attack")])
+
+# checking data types of NEWbcs_data and NEWcsew_data
+str(NEWbcs_data)
+str(NEWcsew_data)
+
+# converting factors values to numeric values if necessary in NEWbcs_data
+NEWbcs_data$num_years_area <- as.numeric(NEWbcs_data$num_years_area)
+NEWbcs_data$num_years_address<-as.numeric(NEWbcs_data$num_years_address)
+
+# converting factors values to numeric values if necessary in NEWcsew_data
+NEWcsew_data$age<-as.numeric(NEWcsew_data$age)
+NEWcsew_data$num_years_area <- as.numeric(NEWcsew_data$num_years_area)
+NEWcsew_data$num_years_address<-as.numeric(NEWcsew_data$num_years_address)
+
+# checking for outliers in NEWbcs_data using boxplot:
+boxplot(NEWbcs_data$age) #outlier idetified here
+boxplot(NEWbcs_data$num_years_address)
+boxplot(NEWbcs_data$num_years_area) #outlier identified here
+
+# removing outliers from "age" column using interquartile range (IQR) method
+remove_outliers <- function(data, columns) {
+  for (col in columns) {
+    q1 <- quantile(data[[col]], 0.25)
+    q3 <- quantile(data[[col]], 0.75)
+    iqr <- q3 - q1
+    lower_bound <- q1 - 1.5 * iqr
+    upper_bound <- q3 + 1.5 * iqr
+    data <- subset(data, data[[col]] >= lower_bound & data[[col]] <= upper_bound)
+  }
+  return(data)
+}
+
+bcsnumeric_columns <- c("age", "num_years_area")
+NEWbcs_data <- remove_outliers(NEWbcs_data, bcsnumeric_columns)
+
+# checking for outliers in NEWcsew_data using boxplot:
+boxplot(NEWcsew_data$age) 
+boxplot(NEWcsew_data$num_years_address)
+boxplot(NEWcsew_data$num_years_area) #outlier identified here
+
+csewnumeric_columns <- c("age", "num_years_area")
+NEWbcs_data <- remove_outliers(NEWbcs_data, csewnumeric_columns)
+
+# Exploring BCS Data Structure
+str(NEWbcs_data)
+summary(NEWbcs_data) # 42205 of 12 variables
+
+# Recoding factor variables in BCS data to have levels "Yes" and "No"
+NEWbcs_data <- NEWbcs_data %>%
+  mutate(
+    personal_theft = recode_factor(personal_theft, "8" = NA_character_, "9" = NA_character_, "1" = "Yes", "2" = "No"),
+    attempted_theft = recode_factor(attempted_theft, "8" = NA_character_, "9" = NA_character_, "1" = "Yes", "2" = "No"),
+    delib_damage = recode_factor(delib_damage, "8" = NA_character_, "9" = NA_character_, "1" = "Yes", "2" = "No"),
+    delib_violence = recode_factor(delib_violence, "8" = NA_character_, "9" = NA_character_, "1" = "Yes", "2" = "No"),
+    threat_violence = recode_factor(threat_violence, "8" = NA_character_, "9" = NA_character_, "1" = "Yes", "2" = "No"),
+    sexual_attack = recode_factor(sexual_attack, "8" = NA_character_, "9" = NA_character_, "1" = "Yes", "2" = "No"),
+  )
+
+# Exploring CSEW Data Structure
+str(NEWcsew_data)
+summary(NEWcsew_data) # 33516 of 12 variables
+
+
+### Exploratory Data Analysis###
+
+# Summary statistics for numeric variables in NEWbcs_data
+summary(NEWbcs_data[, c("age", "num_years_area", "num_years_address")])
+
+# Histograms for numeric variables in NEWbcs_data
+
+#Histogram for Age distribution in BCS data
+ggplot(NEWbcs_data, aes(x = age)) + 
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Age in BCS Data", x = "Age", y = "Frequency")
+
+#Histogram for Number of Years Living in the Area in BCS data
+ggplot(NEWbcs_data, aes(x = num_years_area)) + 
+  geom_histogram(binwidth = 1, fill = "lightgreen", color = "black") +
+  labs(title = "Distribution of Years Living in the Area in BCS Data", x = "Years Living in the Area", y = "Frequency")
+
+#Histogram for Number of Years living at Address in BCS data
+ggplot(NEWbcs_data, aes(x = num_years_address)) + 
+  geom_histogram(binwidth = 1, fill = "lightcoral", color = "black") +
+  labs(title = "Distribution of Years Living at Address in BCS Data", x = "Years Living at Address", y = "Frequency")
+
+# Bar plots for categorical variables in NEWbcs_data
+
+# Bar Graph of Gender Distribution in BCS data
+ggplot(NEWbcs_data, aes(x = gender, fill = gender)) + 
+  geom_bar() +
+  labs(title = "Gender Distribution in BCS Data", x = "Gender", y = "Count") +
+  scale_fill_manual(values = c("Male" = "lightblue", "Female" = "pink")) +
+  theme_minimal()
+
+# Bar Graph of Distribution of Personal Theft in BCS data
+ggplot(NEWbcs_data, aes(x = personal_theft, fill = personal_theft)) + 
+  geom_bar() +
+  labs(title = "Personal Theft Distribution in BCS Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of Distribution of Attempted Theft in BCS data
+ggplot(NEWbcs_data, aes(x = attempted_theft, fill = attempted_theft)) + 
+  geom_bar() +
+  labs(title = "Attempted Personal Theft Distribution in BCS Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of Distribution of Deliberate Damage of Property in BCS data
+ggplot(NEWbcs_data, aes(x = delib_damage, fill = delib_damage)) + 
+  geom_bar() +
+  labs(title = "Delibetrate Damage to Property Distribution in BCS Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of the Distribution of Deliberate Violence to Respondent in BCS data
+ggplot(NEWbcs_data, aes(x = delib_violence, fill = delib_violence)) + 
+  geom_bar() +
+  labs(title = "Deliberate Violence to Respondent Distribution in BCS Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of the Distribution of Threat of Violence to Respondent in BCS data
+ggplot(NEWbcs_data, aes(x = threat_violence, fill = threat_violence)) + 
+  geom_bar() +
+  labs(title = "Threat of Violence to Respondent Distribution in BCS Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of the Distribution of Respondent Experience of Sexual Assault in BCS data
+ggplot(NEWbcs_data, aes(x = sexual_attack, fill = sexual_attack)) + 
+  geom_bar() +
+  labs(title = "Respondent Experience of Sexual Assualt Distribution in BCS Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+# Summary statistics for numeric variables in NEWcsew_data
+summary(NEWcsew_data[, c("age", "num_years_area", "num_years_address")])
+
+# Histograms for numeric variables in NEWcsew_data
+
+#Histogram for Age distribution in CSEW data
+ggplot(NEWcsew_data, aes(x = age)) + 
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Age in CSEW Data", x = "Age", y = "Frequency")
+
+#Histogram for Number of Years Living in the Area in CSEW data
+ggplot(NEWcsew_data, aes(x = num_years_area)) + 
+  geom_histogram(binwidth = 1, fill = "lightgreen", color = "black") +
+  labs(title = "Distribution of Years Living in the Area in CSEW Data", x = "Years Living in the Area", y = "Frequency")
+
+#Histogram for Number of Years living at Address in CSEW data
+ggplot(NEWcsew_data, aes(x = num_years_address)) + 
+  geom_histogram(binwidth = 1, fill = "lightcoral", color = "black") +
+  labs(title = "Distribution of Years Living at Address in CSEW Data", x = "Years Living at Address", y = "Frequency")
+
+## Bar plots for categorical variables in NEWcsew_data
+
+# Bar Graph of Gender Distribution in CSEW data
+ggplot(NEWcsew_data, aes(x = gender, fill = gender)) + 
+  geom_bar() +
+  labs(title = "Gender Distribution in CSEW Data", x = "Gender", y = "Count") +
+  scale_fill_manual(values = c("Male" = "lightblue", "Female" = "pink")) +
+  theme_minimal()
+
+# Bar Graph of Distribution of Personal Theft in CSEW data
+ggplot(NEWcsew_data, aes(x = personal_theft, fill = personal_theft)) + 
+  geom_bar() +
+  labs(title = "Personal Theft Distribution in CSEW Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of Distribution of Attempted Theft in CSEW data
+ggplot(NEWcsew_data, aes(x = attempted_theft, fill = attempted_theft)) + 
+  geom_bar() +
+  labs(title = "Attempted Personal Theft Distribution in CSEW Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of Distribution of Deliberate Damage of Property in CSEW data
+ggplot(NEWcsew_data, aes(x = delib_damage, fill = delib_damage)) + 
+  geom_bar() +
+  labs(title = "Delibetrate Damage to Property Distribution in CSEW Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of the Distribution of Deliberate Violence to Respondent in CSEW data
+ggplot(NEWcsew_data, aes(x = delib_violence, fill = delib_violence)) + 
+  geom_bar() +
+  labs(title = "Deliberate Violence to Respondent Distribution in CSEW Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of the Distribution of Threat of Violence to Respondent in CSEW data
+ggplot(NEWcsew_data, aes(x = threat_violence, fill = threat_violence)) + 
+  geom_bar() +
+  labs(title = "Threat of Violence to Respondent Distribution in CSEW Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+#Bar Graph of the Distribution of Respondent Experience of Sexual Assault in CSEW data
+ggplot(NEWcsew_data, aes(x = sexual_attack, fill = sexual_attack)) + 
+  geom_bar() +
+  labs(title = "Respondent Experience of Sexual Assault Distribution in CSEW Data", x = "Response", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+
+### Data Visualisation###
+
+# Density Plot of BCS data
+BCS_density_plot <- ggplot(NEWbcs_data, aes(x = age, fill = gender)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Age, Coloured by Gender")
+BCS_density_plot
+
+# Density Plot of CSEW data
+CSEW_density_plot <- ggplot(NEWcsew_data, aes(x = age, fill = gender)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "CSEW Density Plot of Age, Coloured by Gender")
+CSEW_density_plot
+
+
+# Stacked Bar Plots of BCS data by Gender
+
+# Stacked Bar Plot of Personal Theft Grouped by Gender (BCS data)
+pers_theft_stacked_bcs_bar_plot <- ggplot(NEWbcs_data, aes(x = gender, fill = personal_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Personal Theft, Grouped by Gender (BCS Data)", fill = "Personal Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(pers_theft_stacked_bcs_bar_plot)
+
+# Stacked Bar Plot of Attempted Theft Grouped by Gender (BCS data)
+attempted_theft_stacked_bcs_bar_plot <- ggplot(NEWbcs_data, aes(x = gender, fill = attempted_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Attempted Theft, Grouped by Gender (BCS Data)", fill = "Attempted Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(attempted_theft_stacked_bcs_bar_plot)
+
+# Stacked Bar Plot of Deliberate Damage Grouped by Gender (BCS data)
+delib_damage_stacked_bcs_bar_plot <- ggplot(NEWbcs_data, aes(x = gender, fill = delib_damage)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Damage, Grouped by Gender (BCS Data)", fill = "Deliberate Damage", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_damage_stacked_bcs_bar_plot)
+
+# Stacked Bar Plot of Deliberate Violence Grouped by Gender (BCS data)
+delib_violence_stacked_bcs_bar_plot <- ggplot(NEWbcs_data, aes(x = gender, fill = delib_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Violence, Grouped by Gender (BCS Data)", fill = "Deliberate Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_violence_stacked_bcs_bar_plot)
+
+# Stacked Bar Plot of Threat of Violence Grouped by Gender (BCS data)
+threat_violence_stacked_bcs_bar_plot <- ggplot(NEWbcs_data, aes(x = gender, fill = threat_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Threat of Violence, Grouped by Gender (BCS Data)", fill = "Threat of Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(threat_violence_stacked_bcs_bar_plot)
+
+# Stacked Bar Plot of Sexual Assault Grouped by Gender (BCS data)
+sexual_assault_stacked_bcs_bar_plot <- ggplot(NEWbcs_data, aes(x = gender, fill = sexual_attack)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Sexual Assault, Grouped by Gender (BCS Data)", fill = "Sexual Assault", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(sexual_assault_stacked_bcs_bar_plot)
+
+#Stacked Bar Plot of CSEW data by Gender
+
+# Stacked Bar Plot of Personal Theft Grouped by Gender (CSEW data)
+pers_theft_stacked_csew_bar_plot <- ggplot(NEWcsew_data, aes(x = gender, fill = personal_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Personal Theft, Grouped by Gender (CSEW Data)", fill = "Personal Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(pers_theft_stacked_csew_bar_plot)
+
+# Stacked Bar Plot of Attempted Theft Grouped by Gender (CSEW data)
+attempted_theft_stacked_csew_bar_plot <- ggplot(NEWcsew_data, aes(x = gender, fill = attempted_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Attempted Theft, Grouped by Gender (CSEW Data)", fill = "Attempted Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(attempted_theft_stacked_csew_bar_plot)
+
+# Stacked Bar Plot of Deliberate Damage Grouped by Gender (CSEW data)
+delib_damage_stacked_csew_bar_plot <- ggplot(NEWcsew_data, aes(x = gender, fill = delib_damage)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Damage, Grouped by Gender (CSEW Data)", fill = "Deliberate Damage", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_damage_stacked_csew_bar_plot)
+
+# Stacked Bar Plot of Deliberate Violence Grouped by Gender (CSEW data)
+delib_violence_stacked_csew_bar_plot <- ggplot(NEWcsew_data, aes(x = gender, fill = delib_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Violence, Grouped by Gender (CSEW Data)", fill = "Deliberate Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_violence_stacked_csew_bar_plot)
+
+# Stacked Bar Plot of Threat of Violence Grouped by Gender (CSEW data)
+threat_violence_stacked_csew_bar_plot <- ggplot(NEWcsew_data, aes(x = gender, fill = threat_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Threat of Violence, Grouped by Gender (CSEW Data)", fill = "Threat of Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(threat_violence_stacked_csew_bar_plot)
+
+# Stacked Bar Plot of Sexual Assault Grouped by Gender (CSEW data)
+sexual_assault_stacked_csew_bar_plot <- ggplot(NEWcsew_data, aes(x = gender, fill = sexual_attack)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Sexual Assault, Grouped by Gender (CSEW Data)", fill = "Sexual Assault", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(sexual_assault_stacked_csew_bar_plot)
+
+## Stacked Bar Plot of Personal Theft Grouped by Age (BCS data)
+
+breaks <- seq(0, 100, by = 10)
+
+# creating age groups
+NEWbcs_data <- NEWbcs_data %>%
+  mutate(age = cut(age, breaks = breaks, labels = paste0("Age ", breaks[-length(breaks)], "-", breaks[-1])))
+
+# Stacked Bar Plot of Personal Theft Grouped by Age (BCS data)
+pers_theft_stacked_bcs_bar_plot_age <- ggplot(NEWbcs_data, aes(x = age, fill = personal_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Personal Theft, Grouped by Age (BCS Data)", fill = "Personal Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(pers_theft_stacked_bcs_bar_plot_age)
+
+# Stacked Bar Plot of Attempted Theft Grouped by Age (BCS data)
+attempted_theft_stacked_bcs_bar_plot_age <- ggplot(NEWbcs_data, aes(x = age, fill = attempted_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Attempted Theft, Grouped by Age (BCS Data)", fill = "Attempted Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(attempted_theft_stacked_bcs_bar_plot_age)
+
+# Stacked Bar Plot of Deliberate Damage Grouped by Age (BCS data)
+delib_damage_stacked_bcs_bar_plot_age <- ggplot(NEWbcs_data, aes(x = age, fill = delib_damage)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Damage, Grouped by Age (BCS Data)", fill = "Deliberate Damage", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_damage_stacked_bcs_bar_plot_age)
+
+# Stacked Bar Plot of Deliberate Violence Grouped by Age (BCS data)
+delib_violence_stacked_bcs_bar_plot_age <- ggplot(NEWbcs_data, aes(x = age, fill = delib_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Violence, Grouped by Age (BCS Data)", fill = "Deliberate Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_violence_stacked_bcs_bar_plot_age)
+
+# Stacked Bar Plot of Threat of Violence Grouped by Age (BCS data)
+threat_violence_stacked_bcs_bar_plot_age <- ggplot(NEWbcs_data, aes(x = age, fill = threat_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Threat of Violence, Grouped by Age (BCS Data)", fill = "Threat of Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(threat_violence_stacked_bcs_bar_plot_age)
+
+# Stacked Bar Plot of Sexual Assault Grouped by Age (BCS data)
+sexual_assault_stacked_bcs_bar_plot_age <- ggplot(NEWbcs_data, aes(x = age, fill = sexual_attack)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Sexual Assault, Grouped by Age (BCS Data)", fill = "Sexual Assault", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(sexual_assault_stacked_bcs_bar_plot_age)
+
+
+## Stacked Bar Plot of Personal Theft Grouped by Age (CSEW data)
+
+breaks <- seq(0, 100, by = 10)
+
+# creating age groups
+NEWcsew_data <- NEWcsew_data %>%
+  mutate(age = cut(age, breaks = breaks, labels = paste0("Age ", breaks[-length(breaks)], "-", breaks[-1])))
+
+# Stacked Bar Plot of Personal Theft Grouped by Age (CSEW data)
+pers_theft_stacked_csew_bar_plot_age <- ggplot(NEWcsew_data, aes(x = age, fill = personal_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Personal Theft, Grouped by Age (CSEW Data)", fill = "Personal Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(pers_theft_stacked_csew_bar_plot_age)
+
+# Stacked Bar Plot of Attempted Theft Grouped by Age (CSEW data)
+attempted_theft_stacked_csew_bar_plot_age <- ggplot(NEWcsew_data, aes(x = age, fill = attempted_theft)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Attempted Theft, Grouped by Age (CSEW Data)", fill = "Attempted Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(attempted_theft_stacked_csew_bar_plot_age)
+
+# Stacked Bar Plot of Deliberate Damage Grouped by Age (CSEW data)
+delib_damage_stacked_csew_bar_plot_age <- ggplot(NEWcsew_data, aes(x = age, fill = delib_damage)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Damage, Grouped by Age (CSEW Data)", fill = "Deliberate Damage", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_damage_stacked_csew_bar_plot_age)
+
+# Stacked Bar Plot of Deliberate Violence Grouped by Age (CSEW data)
+delib_violence_stacked_csew_bar_plot_age <- ggplot(NEWcsew_data, aes(x = age, fill = delib_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Deliberate Violence, Grouped by Age (CSEW Data)", fill = "Deliberate Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_violence_stacked_csew_bar_plot_age)
+
+# Stacked Bar Plot of Threat of Violence Grouped by Age (CSEW data)
+threat_violence_stacked_csew_bar_plot_age <- ggplot(NEWcsew_data, aes(x = age, fill = threat_violence)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Threat of Violence, Grouped by Age (CSEW Data)", fill = "Threat of Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(threat_violence_stacked_csew_bar_plot_age)
+
+# Stacked Bar Plot of Sexual Assault Grouped by Age (CSEW data)
+sexual_assault_stacked_csew_bar_plot_age <- ggplot(NEWcsew_data, aes(x = age, fill = sexual_attack)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Sexual Assault, Grouped by Age (CSEW Data)", fill = "Sexual Assault", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(sexual_assault_stacked_csew_bar_plot_age)
+
+## Stacked Bar Plot Grouped by Age and Gender (BCS Data) - yes response only
+
+yes_data <- NEWbcs_data %>% 
+  filter(sexual_attack == "Yes", personal_theft == "Yes", delib_violence == "Yes")
+
+# Stacked Bar Plot of Personal Theft Grouped by Age and Gender (BCS data) - yes responses only
+personal_theft_grouped_bcs <- ggplot(NEWbcs_data, aes(x = age, fill = personal_theft)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Personal Theft by Age and Gender (BCS Data)", fill = "Personal Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+
+print(personal_theft_grouped_bcs)
+
+# Stacked Bar Plot of Attempted Theft Grouped by Age and Gender (BCS data)
+attempted_theft_grouped_bcs <- ggplot(NEWbcs_data, aes(x = age, fill = attempted_theft)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Attempted Theft by Age and Gender (BCS Data)", fill = "Attempted Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(attempted_theft_grouped_bcs)
+
+# Stacked Bar Plot of Deliberate Damage Grouped by Age and Gender (BCS data)
+delib_damage_grouped_bcs <- ggplot(NEWbcs_data, aes(x = age, fill = delib_damage)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Deliberate Damage by Age and Gender (BCS Data)", fill = "Deliberate Damage", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_damage_grouped_bcs)
+
+# Stacked Bar Plot of Deliberate Violence Grouped by Age and Gender (BCS data) - yes responses only
+yes_data$gender <- factor(yes_data$gender, levels = c("Male", "Female"))
+
+# Create the plot
+delib_violence_grouped_bcs <- ggplot(NEWbcs_data, aes(x = age, fill = delib_violence)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Attempted Theft by Age and Gender (BCS Data)", fill = "Deliberate Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(attempted_theft_grouped_bcs)
+
+
+# Stacked Bar Plot of Threat of Violence Grouped by Age and Gender (BCS data)
+threat_violence_grouped_bcs <- ggplot(NEWbcs_data, aes(x = age, fill = threat_violence)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Threat of Violence by Age and Gender (BCS Data)", fill = "Threat of Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(threat_violence_grouped_bcs)
+
+# Stacked Bar Plot of Sexual Assault Grouped by Age and Gender (BCS data)
+sexual_assault_grouped_bcs <- ggplot(NEWbcs_data, aes(x = age, fill = sexual_attack)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Sexual Assault by Age and Gender (BCS Data)", fill = "Sexual Assault", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(sexual_assault_grouped_bcs)
+
+## Stacked Bar Plot Grouped by Age and Gender (CSEW Data)
+yes_data <- NEWcsew_data %>% 
+  filter(sexual_attack == "Yes", personal_theft == "Yes", delib_violence == "Yes")
+# Stacked Bar Plot of Personal Theft Grouped by Age and Gender (CSEW data)
+pers_theft_grouped_csew <- ggplot(NEWcsew_data, aes(x = age, fill = personal_theft)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Personal Theft by Age and Gender (CSEW Data)", fill = "Personal Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(pers_theft_grouped_csew)
+# Stacked Bar Plot of Attempted Theft Grouped by Age and Gender (CSEW data)
+attempted_theft_grouped_csew <- ggplot(NEWcsew_data, aes(x = age, fill = attempted_theft)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Attempted Theft by Age and Gender (CSEW Data)", fill = "Attempted Theft", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(attempted_theft_grouped_csew)
+
+# Stacked Bar Plot of Deliberate Damage Grouped by Age and Gender (CSEW data)
+delib_damage_grouped_csew <- ggplot(NEWcsew_data, aes(x = age, fill = delib_damage)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Deliberate Damage by Age and Gender (CSEW Data)", fill = "Deliberate Damage", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_damage_grouped_csew)
+
+# Stacked Bar Plot of Deliberate Violence Grouped by Age and Gender (CSEW data)
+delib_violence_grouped_csew <- ggplot(NEWcsew_data, aes(x = age, fill = delib_violence)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Deliberate Violence by Age and Gender (CSEW Data)", fill = "Deliberate Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(delib_violence_grouped_csew)
+
+# Stacked Bar Plot of Threat of Violence Grouped by Age and Gender (CSEW data)
+threat_violence_grouped_csew <- ggplot(NEWcsew_data, aes(x = age, fill = threat_violence)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Threat of Violence by Age and Gender (CSEW Data)", fill = "Threat of Violence", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(threat_violence_grouped_csew)
+
+# Stacked Bar Plot of Sexual Assault Grouped by Age and Gender (CSEW data)
+sexual_assault_grouped_csew <- ggplot(NEWcsew_data, aes(x = age, fill = sexual_attack)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~gender) +
+  labs(title = "Sexual Assault by Age and Gender (CSEW Data)", fill = "Sexual Assault", y = "Count") +
+  scale_fill_manual(values = c("Yes" = "lightgreen", "No" = "lightcoral")) +
+  theme_minimal()
+print(sexual_assault_grouped_csew)
+
+### Hypothesis Testing###
+
+# Total Victimisation Count for NEWbcs_data
+NEWbcs_data$total_victimisation_count <- rowSums(NEWbcs_data[, c("personal_theft", "attempted_theft", "delib_damage", "delib_violence", "threat_violence", "sexual_attack")] == "Yes")
+
+# Total Victimisation Count for NEWcsew_data
+NEWcsew_data$total_victimisation_count <- rowSums(NEWcsew_data[, c("personal_theft", "attempted_theft", "delib_damage", "delib_violence", "threat_violence", "sexual_attack")] == "Yes")
+
+## Hypothesis 1: Victimisation rates have increased over the last decade
+
+# Calculating total victimisation count for both datasets
+total_victimisation_count_bcs <- sum(NEWbcs_data$total_victimisation_count) 
+total_victimisation_count_bcs #total victimisation in BCS is 3182
+total_victimisation_count_csew <- sum(NEWcsew_data$total_victimisation_count)
+total_victimisation_count_csew #total victimisation in CSEW is 2183
+
+# Performing a t-test to compare the mean total victimisation counts between the two datasets
+t_test_result <- t.test(NEWbcs_data$total_victimisation_count, NEWcsew_data$total_victimisation_count)
+print(t_test_result)
+
+## Hypothesis 2: Women are more likely than men to be victims of violent crimes.
+
+# Create contingency tables for delib_violence by gender in both datasets
+delib_violence_table_bcs <- table(NEWbcs_data$gender, NEWbcs_data$delib_violence)
+delib_violence_table_csew <- table(NEWcsew_data$gender, NEWcsew_data$delib_violence)
+
+# Perform Chi-squared test of independence for both datasets
+chi2_test_result_bcs <- chisq.test(delib_violence_table_bcs)
+print(chi2_test_result_bcs)
+chi2_test_result_csew <- chisq.test(delib_violence_table_csew)
+print(chi2_test_result_csew)
+
+## Hypothesis 3: Women are more likely than men to be victims of theft.
+
+# Create contingency tables for delib_violence by gender in both datasets
+personal_theft_table_bcs <- table(NEWbcs_data$gender, NEWbcs_data$personal_theft)
+personal_theft_table_csew <- table(NEWcsew_data$gender, NEWcsew_data$personal_theft)
+
+# Perform Chi-squared test of independence for both datasets
+chi2_test_result_bcs <- chisq.test(personal_theft_table_bcs)
+print(chi2_test_result_bcs)
+chi2_test_result_csew <- chisq.test(personal_theft_table_csew)
+print(chi2_test_result_csew)
+
+## Hypothesis 4: Women are more likely than men to be victims of Sexual Assault.
+
+# Create contingency tables for delib_violence by gender in both datasets
+sexual_attack_table_bcs <- table(NEWbcs_data$gender, NEWbcs_data$sexual_attack)
+sexual_attack_table_csew <- table(NEWcsew_data$gender, NEWcsew_data$sexual_attack)
+
+# Perform Chi-squared test of independence for both datasets
+chi2_test_result_bcs <- chisq.test(sexual_attack_table_bcs)
+print(chi2_test_result_bcs)
+chi2_test_result_csew <- chisq.test(sexual_attack_table_csew)
+print(chi2_test_result_csew)
+
