@@ -1,0 +1,203 @@
+##Scraping data from the UK Government Hansard##
+
+#installing relevant packages
+
+if (!("quanteda" %in% installed.packages())) {
+      install.packages("quanteda")
+    }
+
+    if (!("quanteda.textmodels" %in% installed.packages())) {
+      install.packages("quanteda.textmodels")
+    }
+
+    if (!("quanteda.textplots" %in% installed.packages())) {
+      install.packages("quanteda.textplots")
+    }
+
+    if (!("quanteda.textstats" %in% installed.packages())) {
+      install.packages("quanteda.textstats")
+    }
+
+    if (!("devtools" %in% installed.packages())) {
+      install.packages("devtools")
+    }
+
+    if (!("quanteda.corpora" %in% installed.packages())) {
+      devtools::install_github("quanteda/quanteda.corpora")
+    }
+
+    if (!("readtext" %in% installed.packages())) {
+      install.packages("readtext")
+    }
+
+    if (!("dplyr" %in% installed.packages())) {
+      install.packages("dplyr")
+    }
+
+    if (!("tidytext" %in% installed.packages())) {
+      install.packages("tidytext")
+    }
+
+    if (!("ggplot2" %in% installed.packages())) {
+      install.packages("ggplot2")
+    }
+
+    if (!("rtweet" %in% installed.packages())) {
+      install.packages("rtweet")
+    }
+
+    require(quanteda)
+    require(quanteda.textmodels)
+    require(quanteda.textplots)
+    require(quanteda.textstats)
+    require(quanteda.corpora)
+    require(readtext)
+    require(dplyr)
+    require(tidytext)
+    require (ggplot2)
+    require(rtweet)
+    require(purrr)
+    require(tidyverse)
+    require(rvest)
+    
+
+# Loading the speeches
+
+speeches <- readtext("scraped_speech_data.csv", text_field = "text",
+                     encoding = "ISO-8859-1") %>% select(-URL)
+
+speeches <- speeches %>%
+    mutate(author = case_when(grepl("Ali", speakers) ~ "Rushanara Ali",
+                               grepl("Aiken", speakers) ~ "Nickie Aiken")) %>% 
+    select(-speakers, -ID)
+
+# Converting speeches to corpus
+
+SpeechCorpus <- corpus(speeches)
+summary(SpeechCorpus)
+ndoc(SpeechCorpus)
+
+SpeechCorpus_Ali <- corpus_subset(SpeechCorpus, author == "Rushanara Ali")
+SpeechCorpus_Aiken <- corpus_subset(SpeechCorpus, author == "Nickie Aiken")
+
+# Summary of corpuses
+
+n_MP1 <- ndoc(SpeechCorpus_Ali)
+n_MP2 <- ndoc(SpeechCorpus_Aiken)
+
+sumSpeechCorpus1 <- summary(SpeechCorpus_Ali, n = n_MP1)
+sumSpeechCorpus2 <- summary(SpeechCorpus_Aiken, n = n_MP2)
+
+write.csv(sumSpeechCorpus1, file = "SpeechCorpus_Ali_Summary.csv", row.names = FALSE)
+write.csv(sumSpeechCorpus2, file = "SpeechCorpus_Aiken_Summary.csv", row.names = FALSE)
+
+# KWICs
+
+kwic(tokens(SpeechCorpus_Ali), pattern = "sovereign*", window = 20)
+kwic(tokens(SpeechCorpus_Aiken), pattern = "sovereign*", window = 20)
+
+kwic(tokens(SpeechCorpus_Ali), pattern = phrase("United Kingdom"), window = 3)
+
+# DFM & Text Data Cleaning
+
+DFM_1 <- tokens(SpeechCorpus_Ali, 
+                remove_punct = TRUE, 
+                remove_symbols = TRUE, 
+                remove_numbers = TRUE, 
+                remove_url = TRUE) %>% 
+    dfm() %>% 
+    dfm_tolower()
+
+topfeatures(DFM_1, n = 20)
+
+DFM_2 <- tokens(SpeechCorpus_Aiken, 
+                remove_punct = TRUE, 
+                remove_symbols = TRUE, 
+                remove_numbers = TRUE, 
+                remove_url = TRUE) %>% 
+    dfm() %>% 
+    dfm_tolower()
+
+topfeatures(DFM_2, n = 20)
+
+# Stemming
+
+DFM_1_stem <- dfm_wordstem(DFM_1)
+DFM_2_stem <- dfm_wordstem(DFM_2)
+
+# TF-IDF
+
+DFM_1_tfidf <- DFM_1 %>%
+    dfm_tfidf(scheme_tf = "count", scheme_df = "inverse", base = 10)
+
+DFM_2_tfidf <- DFM_2 %>%
+    dfm_tfidf(scheme_tf = "count", scheme_df = "inverse", base = 10)
+
+# WORDCLOUDS
+
+textplot_wordcloud(DFM_1_stem, min_count = 5, max_words = 150, 
+                   min_size = 0.25, max_size = 3, random_order = FALSE, 
+                   rotation = 0.25, color = "darkblue")
+
+textplot_wordcloud(DFM_2_stem, min_count = 5, max_words = 150, 
+                   min_size = 0.25, max_size = 3, random_order = FALSE, 
+                   rotation = 0.25, color = "sienna")
+
+# Group Analysis
+
+DFM_Master <- tokens(SpeechCorpus, 
+                     remove_punct = TRUE, 
+                     remove_symbols = TRUE, 
+                     remove_numbers = TRUE, 
+                     remove_url = TRUE) %>%
+    dfm() %>%
+    dfm_tolower()
+
+topfeatures(DFM_Master, n = 20)
+
+DFM_Master <- dfm_remove(DFM_Master, pattern = stopwords("en"))
+
+topfeatures(DFM_Master, n = 20)
+
+DFM_Master <- dfm_remove(DFM_Master, pattern = c("one", "also", "thank", "many", "hon", "can", "member"))
+
+prop_dfm_byauthor <- tokens(SpeechCorpus,
+                            remove_punct = TRUE,
+                            remove_symbols = TRUE, 
+                            remove_numbers = TRUE,    
+                            remove_url = TRUE) %>%
+    dfm() %>%
+    dfm_tolower() %>%
+    dfm_remove(pattern = stopwords("en")) %>%
+    dfm_remove(pattern = c("one", "also", "thank", "many", "hon", "can", "member")) %>%
+    dfm_group(groups = author) %>%
+    dfm_weight(scheme = "prop")
+
+write.csv(convert(prop_dfm_byauthor, to = "data.frame"), file = "dfm_group.csv", row.names = FALSE)
+
+# Topic Modelling
+
+DFM_Master <- dfm_subset(DFM_Master, ntoken(DFM_Master))
+
+DFM_stm <- convert(DFM_Master, to = "stm")
+
+K <- 10
+stm_RESULT <- stm(documents = DFM_stm$documents, 
+                  vocab = DFM_stm$vocab, 
+                  data = DFM_stm$meta,
+                  prevalence = ~author,
+                  K, seed = 123, verbose = FALSE)
+
+# Results, validation, and plots
+
+plot(stm_RESULT, n = 5)
+topic_lab <- labelTopics(stm_RESULT)
+topic_lab <- apply(topic_lab$prob,1, function(x) paste(x, collapse=";"))
+print(topic_lab)
+
+top_docs <- apply(stm_RESULT$theta, 2, function(x) order(x, decreasing = TRUE)[1:5])
+
+top_topic1_docs <- top_docs[,grep("education", topic_lab)]
+top_topic1_docs
+
+DFM_stm$meta[top_topic1_docs,]
