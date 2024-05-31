@@ -1,0 +1,123 @@
+# Install and load necessary packages
+install.packages(c("ggplot2", "moments", "readxl"))
+require(ggplot2)
+require(moments)
+require(readxl)
+
+setwd("C:/Users/User/OneDrive/Documents/University/Year in Data Analytics/MAST5956 - Big Data and Machine Learning")
+IntOrg_NCD_variables_2024_02_02 <- read_excel("IntOrg_NCD_variables_2024_02_02.xlsx")
+
+# Systolic Blood Pressure
+
+# Create a histogram to visualise the systolic blood pressure
+ggplot(data=IntOrg_NCD_variables_2024_02_02, aes(x=Systolic_blood_pressure)) +  
+  geom_histogram(binwidth = 5, fill="red", color="black") + 
+  labs(title = "Histogram of Systolic blood pressure", y="Frequency")
+
+# Use the summary function to summarise the data
+summary(IntOrg_NCD_variables_2024_02_02$Systolic_blood_pressure)
+
+# Explanation of the summary
+# min - the minimum systolic blood pressure recorded is 111.2
+# Q1 - 25% of the data falls below 123.9
+# Median - the middle value of the data is 126.8
+# Q3 - 75% of the data falls below 129.8
+# max - the maximum systolic blood pressure recorded is 137.9
+# NAs - There are 400 missing values in the dataset
+
+# Use the skewness function to measure the skewness of the data
+skewness(IntOrg_NCD_variables_2024_02_02$Systolic_blood_pressure)
+
+# Skewness interpretation:
+# - The systolic blood pressure is slightly skewed to the right which indicates a positive skewness,  
+# - the skewness value of 0.202957 confirms this suggesting that the tail of the right side of the distribution is longer than the left side
+# - most of the values are concentrated on the left side. However, this skew is very slight and not very pronounced.
+
+# Use the kurtosis function to measure the kurtosis of the data
+kurtosis(IntOrg_NCD_variables_2024_02_02$Systolic_blood_pressure)
+
+# Kurtosis interpretation:
+# The kurtosis was recorded NA in the dataset 
+# this could be due to the over 400 missing values in the dataset 
+# needs to be investigated before further analysis.
+
+# Prevalence raised blood pressure
+
+# Create a histogram to visualise the prevalence raised blood pressure
+ggplot(data=IntOrg_NCD_variables_2024_02_02, aes(x=Prevalence_raised_blood_pressure)) +  
+  geom_histogram(binwidth = 0.01, fill="red", color="black") + 
+  labs(title = "Histogram of Prevalence raised blood pressure", y="Frequency")
+
+# Explanation for choosing a binwidth of 0.01 instead of 0.5
+# the binwidth for this variable was 0.01 instead of 0.5 because it allows for a more detailed visualisation of the prevalence of raised blood pressure. 
+# It allows us to see the finer variations and patterns that may not be easily seen with a larger binwidth. 
+# The smaller the binwidth, the more bins there are, allowing us to see the tiny changes and patterns in the data resulting in better understanding of the distribution.
+
+# Region
+
+# Create a bar plot to visualise the distribution of regions
+ggplot(IntOrg_NCD_variables_2024_02_02, aes(x=Region)) + 
+  geom_bar(fill="magenta", color="black") + 
+  ggtitle("Distribution of Regions") + 
+  xlab("Region") + 
+  ylab("Count")
+
+# Explanation for using geom_bar()
+# Histograms visualise the distribution of continuous data like blood pressure
+# The x-axis of a histogram represent a range of values and the y-axis represent the frequency
+# However, the “Region” variable is categorical, regions are distinct categories and not continuous values
+# A bar plot is used (through the geom_bar function) to show the frequency of each region as separate bars
+
+# Superregion
+
+# Create a bar plot to visualise the distribution of superregions
+ggplot(IntOrg_NCD_variables_2024_02_02, aes(x=Superregion)) + 
+  geom_bar(fill="brown", color="black") + 
+  ggtitle("Distribution of Superregions") + 
+  xlab("Superregion") + 
+  ylab("Count")
+
+# Summary of the Region and Superregion variables
+summary(IntOrg_NCD_variables_2024_02_02$Superregion)
+summary(IntOrg_NCD_variables_2024_02_02$Region)
+
+# Both “Region” and “Superregion” variables contain 16800 observations
+# The class and mode of both variables are “character” suggesting that they are both categorical variables stored as a text string rather than a numerical string
+# There are no missing values in both the “Region” and “Superregion” variables as they both share the same number of observations
+
+# Years of education
+
+# Create a histogram to visualise the distribution of years of education
+ggplot(data=IntOrg_NCD_variables_2024_02_02, aes(x=Years_of_education)) + 
+  geom_histogram(binwidth = 0.3, fill="gold", color="black") + 
+  labs(title="Histogram of Years of Education", x="Years of Education", y="Frequency")
+
+# Urbanisation
+
+# Create a histogram to visualise the distribution of urbanisation
+ggplot(data=IntOrg_NCD_variables_2024_02_02, aes(x=Urbanisation)) + 
+  geom_histogram(binwidth = 0.01, fill="green", color="black") + 
+  labs(title="Histogram of Urbanisation", x="Urbanisation", y="Frequency")
+
+# Use the str() function to see the internal structure of the variable
+str(IntOrg_NCD_variables_2024_02_02$Urbanisation)
+
+# Explanation of what the str() function tells us
+# The Urbanisation variable is numeric (confirmed by the “num” class)
+# It contains 16800 observations, so there are no missing values
+# The data being numeric suggests that the measure of Urbanisation was quantitative and potentially recorded the percentage of urbanisation in a certain region
+
+# Western Diet Score
+
+# Create a histogram to visualise the distribution of Western diet score
+ggplot(data=IntOrg_NCD_variables_2024_02_02, aes(x=Western_diet_score)) + 
+  geom_histogram(binwidth = 0.15, fill="skyblue", color="black") + 
+  labs(title="Histogram of Western Diet Score", x="Western Diet Score", y="Frequency")
+
+# Measure the skewness of the western diet score
+skewness(IntOrg_NCD_variables_2024_02_02$Western_diet_score)
+
+# Explanation of the skewness
+# A positive skewness because the value is greater than 0 (confirmed by the longer right tail)
+# The positive skewness may suggest that there could be outliers or extreme values
+# The skewness is moderate because it is between 0.5 and 1 meaning that it is noticeable but not extreme
